@@ -5,6 +5,7 @@ import {
   initInput,
   initKeys,
   onInput,
+  onKey,
   keyPressed,
   Pool,
   Vector
@@ -47,7 +48,7 @@ let piper = Sprite({
     if (showSway) {
       c.fillStyle = '#8884';
       c.beginPath();
-      c.arc(0, 0, this.r, 0, 2*Math.PI);
+      c.arc(0, 10, this.r, 0, 2*Math.PI);
       c.fill();
     }
 
@@ -103,7 +104,7 @@ let piper = Sprite({
     c.strokeRect(-4 - headAnim, 20 + bodyAnim, 8, 7 - bodyAnim);
     c.strokeRect(4 + headAnim, 20 + bodyAnim, 8, 7 - bodyAnim);
   },
-  update: function(dt, inControl = true) {
+  update: function(dt) {
     this.x += this.dx;
     this.y += this.dy;
     this.flipX = this.dx > 0 ? 1 : -1;
@@ -112,7 +113,7 @@ let piper = Sprite({
       this.anim -= 1;
     }
 
-    if (inControl) {
+    if (!this.controlled) {
       if (Math.random() > 0.8 && Math.random() * 100 < this.r) {
         addNoteParticle(this.x - this.flipX * 10, this.y);
       }
@@ -143,7 +144,7 @@ let piper = Sprite({
     piper.dy = newVector.y;
   },
   inSway: function(s) {
-    return inCircle(this.x, this.y, this.r - Math.min(s.width, s.height) / 2, s.x, s.y);
+    return inCircle(this.x, this.y + 10, this.r - Math.min(s.width, s.height) / 2, s.x, s.y);
   }
 });
 
@@ -181,7 +182,7 @@ const addRat = (x, y) => {
       if (this.offScreen) {
         if (this.x > this.width && this.x < mainScreen.width - this.width && this.y > this.height && this.y < mainScreen.height - this.height) {
           this.offScreen = false;
-          this.d = this.d.normalize();
+          this.d = this.d.normalize().scale(0.2);
         }
       } else {
         if (this.will <= 0.2 && this.follow) {
@@ -227,11 +228,14 @@ const addRat = (x, y) => {
       }
 
       if (this.will > 0 && piper.inSway(this)) {
-        this.will -= 0.1;
+        this.will -= 0.07;
 
         if (this.will <= 0) {
           this.follow = piper;
         }
+      } else if (this.follow && this.will > 0.3) {
+        this.follow = false;
+        this.d = this.d.normalize().scale(0.4);
       }
     },
     render: function() {
@@ -443,7 +447,20 @@ const newNote = (noteType) => {
   if (noteType === undefined) {
     return;
   }
-  return notes.get({
+  const noteTypes = [];
+  if ((noteType & 1) === 1) {
+    noteTypes.push(0);
+  }
+  if ((noteType & 2) === 2) {
+    noteTypes.push(1);
+  }
+  if ((noteType & 4) === 4) {
+    noteTypes.push(2);
+  }
+  if ((noteType & 8) === 8) {
+    noteTypes.push(3);
+  }
+  noteTypes.forEach((noteType) => notes.get({
     noteType: noteType,
     x: canvas.width + 67,
     y: canvas.height - musics.height + musics.lanes[noteType],
@@ -457,8 +474,8 @@ const newNote = (noteType) => {
       if (this.x < musicChecker.x) {
         this.alive = false;
         decrease(10);
-        rats.getAliveObjects().filter((rat) => rat.following).forEach((rat) => rat.will += 0.2);
-        zzfx(...inst(s[this.noteType] - 20));
+        getFollowRats(piper).forEach((rat) => rat.will += 0.1);
+        zzfx(...inst(defaultNotes[this.noteType] - 20));
         checkSongEnd();
       }
     },
@@ -480,7 +497,7 @@ const newNote = (noteType) => {
     isAlive: function() {
       return this.alive;
     }
-  });
+  }));
 };
 
 const inst = (freq) => [3,0,freq,.05,.1,,1,,,,,,,.1,,,.09,.5,.22];
@@ -498,58 +515,50 @@ const levels = [
     ],
     rats: 5,
     song: {
-      time: 3,
-      speed: 1,
       notes: [
-        0,,1,,2,,3,,2,,1,,0,,0,1,0,,0,,0,,0,1,0,,0,,0
+        1,,1,,2,,4,,8,,4,,2,,1,,1,2,1,,1,,1,,1,2,1,,1,,1
       ]
     }
   },
   {
-    introText: ['','','Here is an easy', 'song to start you off.','','Good luck!'],
+    introText: ['','Something a little','trickier, since we', 'see you can truly play.','','Good luck!'],
     outroText: [
-      ['Oh hero,','the streets are cleaner!','Everyone is happy!'], 
-      ['Well, you cleared','some rats, at least.'], 
-      ['Are you sure','you are blowing into','the right end of the pipes?']
+      ['Our rats they flee,','Oh sweet melody!','','Well done Piper!'], 
+      ['Some rats gone','is better than','no rats gone.'], 
+      ['Have your tried','turning it off and','back on again?']
     ],
-    rats: 5,
+    rats: 6,
     song: {
-      time: 3,
-      speed: 1,
       notes: [
-        0,,1,,2,,3,,2,,1,,0,,0,1,0,,0,,0,,0,1,0,,0,,0
+        1,,2,4,8,,2,4,8,,8,,4,,4,2,4,,4,2,4,,4,2,4,8,4,,1
       ]
     }
   },
   {
-    introText: ['','','Here is an easy', 'song to start you off.','','Good luck!'],
+    introText: ['','Harmonies will do','the trick to cause', 'the rats to flee.','','Good luck!'],
     outroText: [
-      ['Oh hero,','the streets are cleaner!','Everyone is happy!'], 
-      ['Well, you cleared','some rats, at least.'], 
-      ['Are you sure','you are blowing into','the right end of the pipes?']
+      ['Nice playing!','Our children would love','to hear your sweet melodies!'], 
+      ['Maybe the cats','will take care','of the rest of them?'], 
+      ['Maybe you should try','playing an auto pan pipe?']
     ],
-    rats: 5,
+    rats: 7,
     song: {
-      time: 3,
-      speed: 1,
       notes: [
-        0,,1,,2,,3,,2,,1,,0,,0,1,0,,0,,0,,0,1,0,,0,,0
+        1,,12,,8,4,12,,8,4,2,,2,4,1,,1,2,6,,1,2,6,,1,2,6,,2,,1
       ]
     }
   },
   {
-    introText: ['','','Here is an easy', 'song to start you off.','','Good luck!'],
+    introText: ['The final push!','','These rats get a', 'free concert basically.','','Good luck!'],
     outroText: [
-      ['Oh hero,','the streets are cleaner!','Everyone is happy!'], 
-      ['Well, you cleared','some rats, at least.'], 
-      ['Are you sure','you are blowing into','the right end of the pipes?']
+      ['All the rats','are gone!','','Piper, you hero!'], 
+      ['Piper you missed','a few rats...'], 
+      ['Obviously you',"aren't cut out for",'this line of work!']
     ],
-    rats: 5,
+    rats: 8,
     song: {
-      time: 3,
-      speed: 1,
       notes: [
-        0,,1,,2,,3,,2,,1,,0,,0,1,0,,0,,0,,0,1,0,,0,,0
+        1,,3,,6,,12,,4,2,6,2,4,2,12,,12,,8,4,2,1,2,1,6,,2,,3
       ]
     }
   }
@@ -575,13 +584,22 @@ const checkNote = (type) => {
   }
 };
 
+const checkSongEnd = () => {
+  setTimeout(() => {
+    const aliveNotes = notes.getAliveObjects();
+    if (aliveNotes.length > 0) {
+      return false;
+    }
+    changeState(OUTRO_STATE);
+  }, 500);
+};
+
 const increase = (amount = 5) => {
   piper.r = Math.min(piper.r + amount, 100);
   gameData.score += amount;
 };
 const decrease = (amount = 5) => {
   piper.r = Math.max(piper.r - amount, 20);
-  gameData.score += amount;
 };
 
 const handleNoteCheck = (note) => (function(e) {
@@ -597,9 +615,9 @@ const handleNoteCheck = (note) => (function(e) {
     if (gameData.scene === GAME_SCENE && gameData.state === INTRO_STATE && gameData.introText) {
       addNoteParticle(textPipeVec.x + 3 + note * 6, textPipeVec.y + 24 + note * 7);
     } else if (gameData.scene === MENU_SCENE) {
-      if (note === UPNOTE) {
+      if (note === UPNOTE || note === LEFTNOTE) {
         gameData.menuChoice--;
-      } else if (note === DOWNNOTE) {
+      } else if (note === DOWNNOTE || note === RIGHTNOTE) {
         gameData.menuChoice++;
       }
     }
@@ -611,6 +629,18 @@ onInput(['arrowup', 'w'], handleNoteCheck(UPNOTE));
 onInput(['arrowleft', 'a'], handleNoteCheck(LEFTNOTE));
 onInput(['arrowright', 'd'], handleNoteCheck(RIGHTNOTE));
 onInput(['arrowdown', 's'], handleNoteCheck(DOWNNOTE));
+
+onKey(['enter', 'space'], (e) => {
+  if (gameData.scene === MENU_SCENE) {
+    changeScene(GAME_STATE);
+  } else if (gameData.scene === GAME_SCENE && gameData.state === INTRO_STATE && gameData.introText) {
+    gameData.introText = false;
+  } else if (gameData.scene === POST_GAME_SCENE) {
+    changeScene(MENU_SCENE);
+  }
+}, {
+  handler: 'keyup'
+});
 
 // States for the Game Scene
 const INTRO_STATE = 0;
@@ -625,6 +655,7 @@ const POST_GAME_SCENE = 2;
 const gameData = {
   scene: GAME_SCENE,
   song: null,
+  highScores: {},
   level: 0,
   state: INTRO_STATE,
   introText: true,
@@ -635,23 +666,34 @@ const gameData = {
   menuChoice: 0
 };
 
-const saveHighScore = () => {
+const saveHighScores = (score) => {
+  let highScore = false;
   if (window.localStorage) {
-    //const oldHighScores = window.localStorage.get
+    loadHighScores();
+    const oldScore = gameData.highScores[gameData.level];
+    if (!oldScore || oldScore < score) {
+      gameData.highScores[gameData.level] = score;
+      if (score > 0) {
+        highScore = true;
+      }
+    }
+    window.localStorage.setItem('highscores', JSON.stringify(gameData.highScores));
   }
+  return highScore;
 };
 
-const loadHighScore = () => {
+const loadHighScores = () => {
   if (window.localStorage) {
+    const oldHighScoresRaw = window.localStorage.getItem('highscores');
+    if (oldHighScoresRaw) {
+      gameData.highScores = JSON.parse(oldHighScoresRaw);
+    } else {
+      gameData.highScores = {};
+    }
+  } else {
+    gameData.highScores = {};
   }
-};
-
-const checkSongEnd = () => {
-  const aliveNotes = notes.getAliveObjects();
-  if (aliveNotes.length > 0) {
-    return false;
-  }
-  changeState(OUTRO_STATE);
+  console.log('High scores: ', gameData.highScores);
 };
 
 const changeScene = (newScene) => {
@@ -669,6 +711,24 @@ const changeScene = (newScene) => {
     rats.clear();
     changeState(INTRO_STATE);
   } else if (newScene === POST_GAME_SCENE) {
+    gameData.postGame = {
+      score: gameData.score,
+      cleared: getFollowRats(piper).length,
+      loose: getLooseRats().length,
+    };
+    const totalRats = gameData.postGame.cleared + gameData.postGame.loose;
+    const ratio = gameData.postGame.cleared / totalRats;
+    gameData.postGame.score += gameData.postGame.cleared * 50;
+    gameData.postGame.score -= gameData.postGame.loose * 50;
+    gameData.postGame.score = Math.max(0, gameData.postGame.score);
+    if (gameData.postGame.loose === 0) {
+      gameData.postGame.text = levels[gameData.level].outroText[0];
+    } else if (ratio > 0.35) {
+      gameData.postGame.text = levels[gameData.level].outroText[1];
+    } else {
+      gameData.postGame.text = levels[gameData.level].outroText[2];
+    }
+    gameData.postGame.gotHighScore = saveHighScores(gameData.postGame.score);
     rats.clear();
     notes.clear();
   }
@@ -682,16 +742,24 @@ const changeState = (newState) => {
     piper.y = mainScreen.height / 2;
     piper.dy = 0;
     piper.dx = 3;
+    piper.r = 10;
+    piper.controlled = true;
   } else if (newState === GAME_STATE) {
+    piper.speed = 2;
     const newVector = rndVector().scale(piper.speed);
     piper.dx = newVector.x;
     piper.dy = newVector.y;
+    delete piper.controlled;
     gameData.song = levels[gameData.level].song;
     gameData.songPlace = 0;
     for (let i = 0; i < levels[gameData.level].rats; i++) {
       addRat();
     }
   } else if (newState === OUTRO_STATE) {
+    piper.controlled = true;
+    piper.dx = 3;
+    piper.dy = 0;
+    piper.speed = 3;
     gameData.outro = 80;
     gameData.outroText = false;
   }
@@ -712,9 +780,6 @@ let loop = GameLoop({
       } else if (gameData.menuChoice > levels.length - 1) {
         gameData.menuChoice -= levels.length;
       }
-      if (keyPressed(['space', 'enter', 'z'])) {
-        changeScene(GAME_STATE);
-      }
       piper.anim += 0.1;
       rats.getAliveObjects().forEach((rat) => {
         rat.anim += 0.05 + Math.random() * 0.1;
@@ -722,13 +787,8 @@ let loop = GameLoop({
       });
     } else if (gameData.scene === GAME_SCENE) {
       if (gameData.state === INTRO_STATE) {
-        if (gameData.introText) {
-          if (keyPressed(['space', 'enter', 'z'])) {
-            gameData.introText = false;
-            console.log(piper.x, piper.y, piper.dx, piper.dy);
-          }
-        } else {
-          piper.update(dt, false);
+        if (!gameData.introText) {
+          piper.update(dt);
           if (piper.x >= mainScreen.width / 2) {
             changeState(GAME_STATE);
           }
@@ -770,14 +830,11 @@ let loop = GameLoop({
           }
         }
       } else if (gameData.state === OUTRO_STATE) {
-        piper.update(dt, false);
+        piper.update(dt);
+        rats.update();
         if (piper.x >= mainScreen.width + mainScreen.width / 2) {
           changeScene(POST_GAME_SCENE);
         }
-      }
-    } else if (gameData.scene === POST_GAME_SCENE) {
-      if (keyPressed(['space', 'enter', 'z'])) {
-        changeScene(MENU_SCENE);
       }
     }
     noteParticles.update();
@@ -812,7 +869,7 @@ let loop = GameLoop({
           c.font = 'bold 28px sans-serif';
           levels[gameData.level].introText.forEach((text, i) => centerText(c, text, (i + 1) * 32));
           renderPipes(c, textPipeVec.x, textPipeVec.y);
-          centerText(c, 'Press [space] to start', canvas.height - 32);
+          centerText(c, 'Space/Enter to start', canvas.height - 32);
         } else {
           rats.render();
           piper.render();
@@ -828,6 +885,17 @@ let loop = GameLoop({
         piper.render();
       }
     } else if (gameData.scene === POST_GAME_SCENE) {
+      c.font = 'bold 32px sans-serif';
+      centerText(c, 'Song Complete', 32);
+      c.font = 'bold 28px sans-serif';
+      centerText(c, gameData.postGame.cleared + ' rats gone', 96);
+      centerText(c, gameData.postGame.loose + ' rats left', 128);
+      centerText(c, 'Score: ' + gameData.postGame.score, 160);
+      if (gameData.postGame.gotHighScore) {
+        centerText(c, 'High Score!', 192);
+      }
+      gameData.postGame.text.forEach((text, i) => centerText(c, text, 224 + (i + 1) * 32));
+      centerText(c, 'Space/Enter for menu', canvas.height - 32);
     }
     noteParticles.render();
   }
@@ -839,6 +907,7 @@ const centerText = (c, text, y) => {
 };
 
 //changeState(INTRO_STATE, 0);
+loadHighScores();
 changeScene(MENU_SCENE);
 loop.start();
 
